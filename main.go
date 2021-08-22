@@ -114,6 +114,10 @@ func Output(ctx context.Context, w io.Writer, driver, dsn string, queries []stri
 	}
 	defer db.Close()
 
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+
 	var args []interface{}
 	for _, p := range params {
 		args = append(args, p)
