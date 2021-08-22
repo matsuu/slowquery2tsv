@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strings"
 
@@ -102,6 +101,10 @@ LEFT JOIN pg_database d ON s.dbid = d.oid
 ORDER BY s.total_exec_time DESC`
 )
 
+var (
+	isVerbose bool
+)
+
 // Output はDBからPerformanceSchemaを読み込んでTSV形式で出力
 func Output(ctx context.Context, w io.Writer, driver, dsn string, queries []string, params ...string) error {
 
@@ -123,7 +126,9 @@ func Output(ctx context.Context, w io.Writer, driver, dsn string, queries []stri
 		if err == nil {
 			break
 		}
-		log.Print(err)
+		if isVerbose {
+			fmt.Fprintf(os.Stderr, `failed to query "%s": %v\n`, query, err)
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("failed to query: %w", err)
@@ -188,6 +193,8 @@ func main() {
 	flag.StringVar(&ssl, "s", "disable", "sslmode(TLS) (shorthand)")
 	flag.StringVar(&query, "execute", "", "execute command")
 	flag.StringVar(&query, "e", "", "execute command (shorthand)")
+	flag.BoolVar(&isVerbose, "verbose", false, "verbose output")
+	flag.BoolVar(&isVerbose, "v", false, "verbose output (shorthand)")
 	flag.Parse()
 
 	dbname := flag.Arg(0)
@@ -264,10 +271,12 @@ func main() {
 			queries = append(queries, query)
 		}
 	default:
-		log.Fatalf("unknown driver: %s", driver)
+		fmt.Fprintf(os.Stderr, "unknown driver: %s\n", driver)
+		os.Exit(1)
 	}
 
 	if err := Output(context.Background(), os.Stdout, driver, dsn, queries, params...); err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
