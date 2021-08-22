@@ -16,9 +16,23 @@ import (
 )
 
 const (
-	defaultDriver       = "mysql"
-	defaultDBName       = "performance_schema"
-	defaultQueryMysql56 = `select
+	defaultDriver = "mysql"
+	defaultDBName = "performance_schema"
+
+	defaultQueryMysql565 = `select
+  COUNT_STAR AS cnt,
+  SUM_TIMER_WAIT/1e12 AS sum,
+  MIN_TIMER_WAIT/1e12 AS min,
+  AVG_TIMER_WAIT/1e12 AS avg,
+  MAX_TIMER_WAIT/1e12 AS max,
+  SUM_LOCK_TIME/1e12 AS sumLock,
+  SUM_ROWS_SENT AS sumRows,
+  ifnull((SUM_ROWS_SENT / nullif(COUNT_STAR,0)),0) AS avgRows,
+  DIGEST_TEXT AS digest
+from events_statements_summary_by_digest
+order by SUM_TIMER_WAIT desc`
+
+	defaultQueryMysql569 = `select
   COUNT_STAR AS cnt,
   SUM_TIMER_WAIT/1e12 AS sum,
   MIN_TIMER_WAIT/1e12 AS min,
@@ -28,10 +42,11 @@ const (
   SUM_ROWS_SENT AS sumRows,
   ifnull((SUM_ROWS_SENT / nullif(COUNT_STAR,0)),0) AS avgRows,
   SCHEMA_NAME AS db,
-  DIGEST AS digest
+  DIGEST_TEXT AS digest
 from events_statements_summary_by_digest
-where schema_name <> ?
+where SCHEMA_NAME <> ?
 order by SUM_TIMER_WAIT desc`
+
 	defaultQueryMysql80 = `select
   COUNT_STAR AS cnt,
   SUM_TIMER_WAIT/1e12 AS sum,
@@ -44,8 +59,9 @@ order by SUM_TIMER_WAIT desc`
   SCHEMA_NAME AS db,
   QUERY_SAMPLE_TEXT AS query
 from events_statements_summary_by_digest
-where schema_name <> ?
+where SCHEMA_NAME <> ?
 order by SUM_TIMER_WAIT desc`
+
 	defaultQueryPgsql94 = `SELECT
   s.calls AS cnt,
   s.total_time AS sum,
@@ -56,6 +72,7 @@ order by SUM_TIMER_WAIT desc`
 FROM pg_stat_statements s
 LEFT JOIN pg_database d ON s.dbid = d.oid
 ORDER BY s.total_time DESC`
+
 	defaultQueryPgsql95 = `SELECT
   s.calls AS cnt,
   s.total_time AS sum,
@@ -69,6 +86,7 @@ ORDER BY s.total_time DESC`
 FROM pg_stat_statements s
 LEFT JOIN pg_database d ON s.dbid = d.oid
 ORDER BY s.total_time DESC`
+
 	defaultQueryPgsql13 = `SELECT
   s.calls AS cnt,
   s.total_exec_time AS sum,
@@ -204,7 +222,8 @@ func main() {
 		dsn = mysqlConfig.FormatDSN()
 		if query == "" {
 			queries = append(queries, defaultQueryMysql80)
-			queries = append(queries, defaultQueryMysql56)
+			queries = append(queries, defaultQueryMysql569)
+			queries = append(queries, defaultQueryMysql565)
 			params = append(params, dbname)
 		} else {
 			queries = append(queries, query)
